@@ -22,6 +22,71 @@
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/rcc.h>
 
+/**
+ * @brief Abstracción de un LED que puede prender, apagar o alternar.
+ *
+ */
+class LED {
+private:
+  uint32_t _port;
+  uint16_t _gpio;
+  uint8_t _logica;
+  bool _esta_prendido;
+
+public:
+  /**
+   * @brief Constructor de un nuevo objeto LED
+   *
+   * @param port  puerto donde está el led (GPIOA, GPIOB, GPIOC)
+   * @param gpio  Pin donde está el LED (GPIO0-GPIO15)
+   * @param logica  Si el LED prende con (0 ó 1)
+   * @param es_opendrain true: es salida Open Drain false: Salida Push/Pull
+   */
+  LED(uint32_t port, uint16_t gpio, uint8_t logica, bool es_opendrain = false)
+      : _port(port), _gpio(gpio), _logica(logica), _esta_prendido(true) {
+    rcc_periph_clock_enable((port == GPIOA) ? RCC_GPIOA : (port == GPIOB) ? RCC_GPIOB : RCC_GPIOC);
+    gpio_set_mode(port, GPIO_MODE_OUTPUT_2_MHZ,
+                  (es_opendrain) ? GPIO_CNF_OUTPUT_OPENDRAIN : GPIO_CNF_OUTPUT_PUSHPULL, gpio);
+    apagar(); // LED inicialmente apagado.
+  }
+  /**
+   * @brief Devuelve el estado actual del LED
+   *
+   * @return true El LED está prendido.
+   * @return false El LED está apagado.
+   */
+  bool estaPrendido() const { return _esta_prendido; }
+  /**
+   * @brief Prende el LED (si está apagado)
+   */
+  void prender() {
+    if (_esta_prendido) return;
+    if (_logica)
+      gpio_set(_port, _gpio);
+    else
+      gpio_clear(_port, _gpio);
+    _esta_prendido = true;
+  }
+  /**
+   * @brief Apaga el LED (si está prendido)
+   */
+  void apagar() {
+    if (!_esta_prendido) return;
+    if (_logica)
+      gpio_clear(_port, _gpio);
+    else
+      gpio_set(_port, _gpio);
+    _esta_prendido = false;
+  }
+  /**
+   * @brief Alterna el estado del LED
+   */
+  void alternar() {
+    _esta_prendido = !_esta_prendido;
+    gpio_toggle(_port, _gpio);
+  }
+};
+
 // Variable que acumula los milisegundos transcurridos
 volatile uint32_t millis{};
 
@@ -52,11 +117,12 @@ int main() {
 
   // Periférico donde van a estar leds y pulsadores (en un mismo puerto para simplificar)
   rcc_periph_clock_enable(RCC_GPIOB);
-  // LEDs en PB4 (led1) y PB5 (led2)
-  gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_2_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, GPIO4 | GPIO5);
   gpio_set(GPIOB, GPIO4 | GPIO5);
   // Pulsadores PB12, PB13 y PB14
   gpio_set_mode(GPIOB, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, GPIO12 | GPIO13 | GPIO14);
+
+  // Objetos instanciados (led1 y led2)
+  LED led1{GPIOB, GPIO4, 0}, led2{GPIOB, GPIO5, 0};
 
   /* Se configura el timer del ARM Cortex-M */
   systick_set_frequency(1000, rcc_ahb_frequency); // Configuración del systick c/1ms
@@ -67,7 +133,6 @@ int main() {
   uint8_t ventana_btns[3]{0xFF, 0xFF, 0xFF};
   uint8_t estado_btns[3]{};
   uint8_t estado_anterior_btns[3]{};
-  void (*accion_btns[3])(void){accion_btn1, accion_btn2, accion_btn3};
   uint32_t ticks_btns{BTN_TICKS};
   while (true) {
     if (millis >= ticks_btns) {
@@ -91,7 +156,11 @@ int main() {
         // si ahora hay un 0 y antes había un 1 (flanco descendente)
         if (estado_btns[i] < estado_anterior_btns[i]) {
           // se presionó el botón, se ejecuta la función correspondiente
-          accion_btns[i]();
+          switch (i) {
+          case 0: led1.alternar(); break;
+          case 1: led2.prender(); break;
+          case 2: led2.apagar(); break;
+          }
         }
         estado_anterior_btns[i] = estado_btns[i];
       }

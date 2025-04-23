@@ -35,9 +35,21 @@ if (ventana_btn == 0x00) { // si en la ventana hay ocho ceros (0b0000'0000)
 
 Se leen 3 botones ubicados en PB12 (btn1), PB13 (btn2) y PB14 (btn3). El btn1 alterna el PB4 (led1), cada vez que es presionado se alterna entre prendido y apagado. El btn2 pone en estado BAJO el PB5, prendiendo el led2, y el btn3 lo apaga poniendo en estado alto el mismo pin.
 
-## Versión sin objetos-v2
+## Versión con objetos-v1
 
-En esta versión del código, está un poco optimizado utilizando arreglos para la lógica de sensado y acciones a realizar y sin el uso de objetos. El sensado sigue en el *loop* principal y se leen los pulsadores secuencialmente en un bucle. Las acciones a ejecutan en funciones por separado y son invocadas a través de un arreglo de puntero a función `;)`.
+En esta iteración se agrega el primer objeto `LED` el cual tiene el comportamiento de `prender()`, `apagar()` y `alternar()`. El botón todavía no fue *"Objetizado"*, eso se hará en la siguiente versión.
+
+Los objetos son abstracciones de la realidad que se plasman en código. Las **clases** son *modelos* o *plantillas* que indican qué propiedades tienen los mismos y las *funciones miembro* o *métodos* hacen al comportamiento del objeto (es decir, lo que sabe o puede hacer). Por lo tanto una clase define las 3 cuestiones básicas del modelo: Nombre, Estado (atributos) y Comportamiento (métodos).
+
+![Diagrama de clase de LED](./img/diagrama-clases.png)
+
+El objeto (o la instancia) son las variables, en este caso, `led1` y `led2`, que en el código llaman al **constructor** de la clase (la función que no tiene retorno, y cuyo nombre coincide con el de la clase).
+
+```cpp
+LED led1{GPIOB, GPIO4, 0}; // Objeto led1 de la clase LED
+```
+
+Los objetos tienen identidad própia (nombre de la variable) y sus propios estados (definidos por el valor en sus atributos), posee un comportamiento que se activa al enviar alguno de los mensajes expuestos en su *API pública*, en este caso los mensajes son `apagar()`, `prender()` y `alternar()`.
 
 Para detectar el flanco, se utiliza una variable auxilar que almacena el estado **establecido** (descartando el rebote) anterior, y lo compara con el recientemente leído (`estado_btnX`). Siguiendo la siguiente lógica:
 

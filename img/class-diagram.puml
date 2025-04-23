@@ -1,0 +1,20 @@
+@startuml diagrama-clases
+hide circle
+skinparam classAttributeIconSize 0
+skinparam backgroundColor transparent
+skinparam monochrome true
+skinparam shadowing false
+skinparam roundcorner 0
+
+Class LED {
+  - port : Integer
+  - gpio : Integer
+  - logica : Integer
+  - esta_prendido : Boolean
+  + LED(port : Integer, gpio : Integer, logica : Integer, es_opendrain : Boolean)
+  + apagar()
+  + prender()
+  + alternar()
+}
+
+@enduml
