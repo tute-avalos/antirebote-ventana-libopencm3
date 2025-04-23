@@ -35,39 +35,59 @@ if (ventana_btn == 0x00) { // si en la ventana hay ocho ceros (0b0000'0000)
 
 Se leen 3 botones ubicados en PB12 (btn1), PB13 (btn2) y PB14 (btn3). El btn1 alterna el PB4 (led1), cada vez que es presionado se alterna entre prendido y apagado. El btn2 pone en estado BAJO el PB5, prendiendo el led2, y el btn3 lo apaga poniendo en estado alto el mismo pin.
 
-## Versión con objetos-v2
+## Versión con objetos-v3
 
-En esta iteración se agrega una nueva clase `Boton` y ahora se ha agregado un archivo `include/led.hpp` donde está la declaración de la clase `LED` y la implementación (lo que hacen los métodos) en `src/led.cpp`. En el main se incluye el archivo `"led.hpp"` para poder acceder al mismo. Para ver más rápidamente la inclusión de la clase `Boton` esta se dejó en el `main.cpp`, pero si se dividió su declaración de su implementación.
+En esta última iteración tanto la clase `Boton` como la clase `LED` tienen ambos sus respectivos archivos `.hpp` en la carpeta `include/` y `.cpp` en la carpeta `src/`. Ahora se aplicará un poco de *"ingeniería de software"* para evitar que el programador que utilice la clase `Boton` tenga que manualmente actualizar el estado del pin correspondiente, es decir, que sea transparente para él y es por ello que se saca de la API pública el mensaje `actualizar()`.
 
-Para poder implementar algo de lo declarado en una clase por fuera de ella, debemos recurrir al operador de *ambito* `::`. Es decir, debemos especificar que estamos tratando con una función miembro de una clase y no una función cualquiera. Esto se hace siguiente el formato:
+---
+![Diagrama de clase de LED](./img/diagrama-clases.png)
+
+En este caso utilizaremos dos patrones de diseño, el primero es conocido como *Singleton*, ya que solo permite una instancia, es decir un único objeto, de la clase que implementa este patrón. Es el caso del `ManejadorTareasPeriodicas`. Una de las características de este patrón, es que el constructor (el encargado de crear la clase) es privado, es decir que no se puede instanciar el objeto directamente. Por otro lado, tiene un método que es parte de su API pública que devuelve la única instancia existente de esta clase `obtenerInstancia()`, el cual es estático (en el UML se ve subrayado), eso quiere decir que esta función se puede invocar a través de la clase y el operador de ámbito `::`, sin la necesidad de instanciar un objeto. A estos se los conoce como **métodos de clase**. En este caso en código se ve así:
 
 ```cpp
-// <tipo_dato_retorno> <clase>::<método>() {
-//   ... <-- implementación
-// }
-// por ejemplo:
-bool Boton::estaActivo() { 
+ManejadorTareasPeriodicas::obtenerInstancia();
+```
+
+A través de esta instancia única del objeto podemos acceder a los demás métodos públicos:
+
+```cpp
+ManejadorTareasPeriodicas::obtenerInstancia().registrarTarea(tarea, 4);
+ManejadorTareasPeriodicas::obtenerInstancia().tick();
+```
+Además aplicamos un patrón parecido a *observer*, sin llegar a serlo, ya que no podemos suscribir y desuscribir al objeto. Esto se hace a través de la interfaz `Actualizable`, las clases que implementen este contrato (que lo único que exige es implementar un método `actualizar()`) el cual no tiene contenido y está marcado como `virtual` (sin contenido). El maenejador de tareas, registra cualquier objeto que implemente esta interfaz -en nuestro caso la clase `Boton`- la cual es responsable de implementar el mensaje `actualizar()` y además de registrarse en el manejador a través de `registrarTarea()` indicando cada cuanto debe ser llamada, para ello se utiliza el *puntero autoreferencial* `this`.
+
+```cpp
+// Constructor de Boton
+Boton::Boton(uint32_t port, uint16_t gpio, logic_t logica, bool es_pull_up_down) {
+  // ...
+  // Llamar a actualizar() cada 4ms:
+  ManejadorTareasPeriodicas::obtenerInstancia().registrarTarea(this, 4);
+}
+```
+
+Debe de notar que `Actualizable` solo tiene un `.hpp` justamente porque no hay implementaciones en una interfaz. C++ no proporciona una palabra reservada *interface* como en otros lenguajes (como Java), sino que simplemente marca todos sus métodos como `virtual` para lograr este comportamiento.
+
+Por último, el acceso a `actualizar()` no es público, eso quiere decir que no forma parte de la API pública del objeto y el programador no puede llamarla directamente, está en la clasificación "protegida", y la clase `ManejadorTareasPeriodicas` puede acceder a ella, gracias a que fue clasificada como una clase *"amiga"* de la interfaz `Actualizable` utilizando la palabra reservada `friend` en la definición de la clase:
+
+```cpp
+class Actualizable {
+  friend class ManejadorTareasPeriodicas;
   // ...
 }
 ```
 
+Este código aporta flexibilidad al utilizar una interfaz independiente a la clase `Boton`, y nos proporciona la posibilidad de que otra clase también pueda formar parte de la mecánica de tareas periódicas y aplicar su propia lógica.
+
 ---
-*Recordamos que...*\
-Los objetos son abstracciones de la realidad que se plasman en código. Las **clases** son *modelos* o *plantillas* que indican qué propiedades tienen los mismos y las *funciones miembro* o *métodos* hacen al comportamiento del objeto (es decir, lo que sabe o puede hacer). Por lo tanto una clase define las 3 cuestiones básicas del modelo: Nombre, Estado (atributos) y Comportamiento (métodos).
 
-![Diagrama de clase de LED](./img/diagrama-clases.png)
+## Uso de `platformio.ini` para flexibilizar el código
 
+La clase `ManejadorTareasPeriodicas` utiliza un *define* que indica la longitud máxima del arreglo de tareas a ejecutar. Para aportar una flexibilidad al momento de compilar, este puede ser definido en la linea de compilación utilizando la variable `build_flags` del archivo `platformio.ini` de la siguiente manera, reemplazando `X` por la cantidad máxima de tareas:
 
-El objeto (o la instancia) son las variables, en este caso, los botones están en una variable del tipo *arreglo de Boton de 3 elementos*.
-
-```cpp
-// Arreglo de 3 *Botones* todos activos en bajo (por default)
-Boton botones[3]{{GPIOB, GPIO12}, {GPIOB, GPIO13}, {GPIOB, GPIO14}};
+```ini
+# ...
+build_flags = -DMAX_TASKS=X
 ```
-
-Los objetos tienen identidad própia (nombre de la variable) y sus propios estados (definidos por el valor en sus atributos), posee un comportamiento que se activa al enviar alguno de los mensajes expuestos en su *API pública*, en este caso los mensajes son `estaActivo()`, `huboFlancoAscendente()`, `huboFlancoDescendente()` y `actualizar()`.
-
----
 
 ## Sobre la detección del flanco
 

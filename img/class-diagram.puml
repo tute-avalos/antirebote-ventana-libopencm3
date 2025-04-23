@@ -17,6 +17,10 @@ Class LED {
   + alternar()
 }
 
+Interface Actualizable <<interface>> {
+  + actualizar()
+}
+
 Class Boton {
   - port : Integer
   - gpio : Integer
@@ -33,4 +37,16 @@ Class Boton {
   + actualizar()
 }
 
+Class ManejadorTareasPeriodicas {
+  ticks : Integer[]
+  delta_ticks : Integer[]
+  cont_tareas : Integer
+  - ManejadorTareasPeriodicas()
+  + <<create>> <u> obtenerInstancia()</u>
+  + registrarTarea(tarea : Actualizable, tick : Integer) : Boolean
+  + tick()
+}
+
+Actualizable <|-- Boton
+ManejadorTareasPeriodicas "1" -> "*" Actualizable : tareas
 @enduml
