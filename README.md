@@ -35,9 +35,9 @@ if (ventana_btn == 0x00) { // si en la ventana hay ocho ceros (0b0000'0000)
 
 Se leen 3 botones ubicados en PB12 (btn1), PB13 (btn2) y PB14 (btn3). El btn1 alterna el PB4 (led1), cada vez que es presionado se alterna entre prendido y apagado. El btn2 pone en estado BAJO el PB5, prendiendo el led2, y el btn3 lo apaga poniendo en estado alto el mismo pin.
 
-## Versión sin objetos-v1
+## Versión sin objetos-v2
 
-En esta versión del código, está todo "sin optimizar" y sin el uso de objetos. Todo se implementa en el *loop* principal y se leen todos los pulsadores por separado.
+En esta versión del código, está un poco optimizado utilizando arreglos para la lógica de sensado y acciones a realizar y sin el uso de objetos. El sensado sigue en el *loop* principal y se leen los pulsadores secuencialmente en un bucle. Las acciones a ejecutan en funciones por separado y son invocadas a través de un arreglo de puntero a función `;)`.
 
 Para detectar el flanco, se utiliza una variable auxilar que almacena el estado **establecido** (descartando el rebote) anterior, y lo compara con el recientemente leído (`estado_btnX`). Siguiendo la siguiente lógica:
 

@@ -28,6 +28,19 @@ volatile uint32_t millis{};
 // cada 4ms se hace una lectura del botón:
 const uint32_t BTN_TICKS{4};
 
+// Acciones a ejecutar según el botón presionado:
+void accion_btn1() {
+  gpio_toggle(GPIOB, GPIO4); // alternamos el "led1"
+}
+
+void accion_btn2() {
+  gpio_clear(GPIOB, GPIO5); // prende el "led2"
+}
+
+void accion_btn3() {
+  gpio_set(GPIOB, GPIO5); // apaga el "led2"
+}
+
 int main() {
   // clock externo (HSE) de 8Mhz -> PLL -> 72Mhz
   rcc_clock_setup_in_hse_8mhz_out_72mhz();
@@ -50,71 +63,38 @@ int main() {
   systick_counter_enable();                       // se habilita la cuenta
   systick_interrupt_enable();                     // se habilita la interrupción
 
-  uint8_t ventana_btn1{0xFF}, ventana_btn2{0xFF}, ventana_btn3{0xFF}; // ventanas de lectura
-  uint8_t estado_btn1{}, estado_anterior_btn1{};
-  uint8_t estado_btn2{}, estado_anterior_btn2{};
-  uint8_t estado_btn3{}, estado_anterior_btn3{};
+  uint16_t gpios[3]{GPIO12, GPIO13, GPIO14};
+  uint8_t ventana_btns[3]{0xFF, 0xFF, 0xFF};
+  uint8_t estado_btns[3]{};
+  uint8_t estado_anterior_btns[3]{};
+  void (*accion_btns[3])(void){accion_btn1, accion_btn2, accion_btn3};
   uint32_t ticks_btns{BTN_TICKS};
   while (true) {
     if (millis >= ticks_btns) {
       // Se actualizan los ticks para la próxima lectura
       ticks_btns += BTN_TICKS;
 
-      /******************** Lógica para la lectura del btn1 ********************/
-      // desplazamos 1 bit la ventana del btn1 (corremos la ventana)
-      ventana_btn1 <<= 1;
-      // leemos el estado del btn1 y guardamos en el bit 0 de la ventana:
-      ventana_btn1 |= (gpio_get(GPIOB, GPIO12) == GPIO12);
+      /******************** Lógica para la lectura de los botones ********************/
+      for (int i{0}; i < 3; ++i) {
+        // desplazamos 1 bit la ventana del btn[i] (corremos la ventana)
+        ventana_btns[i] <<= 1;
+        // leemos el estado del btn1 y guardamos en el bit 0 de la ventana:
+        ventana_btns[i] |= (gpio_get(GPIOB, gpios[i]) == gpios[i]);
 
-      if (ventana_btn1 == 0x00) { // si en la ventana hay ocho ceros (0b0000'0000)
-        // hay un cero en el pulsador
-        estado_btn1 = 0;
-      } else if (ventana_btn1 == 0xFF) { // si en la ventana hay ocho unos (0b1111'1111)
-        // hay un uno en el pulsador
-        estado_btn1 = 1;
+        if (ventana_btns[i] == 0x00) { // si en la ventana hay ocho ceros (0b0000'0000)
+          // hay un cero en el pulsador
+          estado_btns[i] = 0;
+        } else if (ventana_btns[i] == 0xFF) { // si en la ventana hay ocho unos (0b1111'1111)
+          // hay un uno en el pulsador
+          estado_btns[i] = 1;
+        }
+        // si ahora hay un 0 y antes había un 1 (flanco descendente)
+        if (estado_btns[i] < estado_anterior_btns[i]) {
+          // se presionó el botón, se ejecuta la función correspondiente
+          accion_btns[i]();
+        }
+        estado_anterior_btns[i] = estado_btns[i];
       }
-      // si ahora hay un 0 y antes había un 1 (flanco descendente)
-      if (estado_btn1 < estado_anterior_btn1) {
-        // se presionó el botón
-        gpio_toggle(GPIOB, GPIO4); // alternamos el "led1"
-      }
-      estado_anterior_btn1 = estado_btn1;
-      /******************** Lógica para la lectura del btn2 ********************/
-      // desplazamos 1 bit la ventana del btn2 (corremos la ventana)
-      ventana_btn2 <<= 1;
-      // leemos el estado del btn2 y guardamos en el bit 0 de la ventana:
-      ventana_btn2 |= (gpio_get(GPIOB, GPIO13) == GPIO13);
-      if (ventana_btn2 == 0x00) { // si en la ventana hay ocho ceros (0b0000'0000)
-        // hay un cero en el pulsador
-        estado_btn2 = 0;
-      } else if (ventana_btn2 == 0xFF) { // si en la ventana hay ocho unos (0b1111'1111)
-        // hay un uno en el pulsador
-        estado_btn2 = 1;
-      }
-      // si ahora hay un 0 y antes había un 1 (flanco descendente)
-      if (estado_btn2 < estado_anterior_btn2) {
-        // se presionó el botón
-        gpio_clear(GPIOB, GPIO5); // prendemos el "led2"
-      }
-      estado_anterior_btn2 = estado_btn2;
-      /******************** Lógica para la lectura del btn3 ********************/
-      // desplazamos 1 bit la ventana del btn3 (corremos la ventana)
-      ventana_btn3 <<= 1;
-      // leemos el estado del btn3 y guardamos en el bit 0 de la ventana:
-      ventana_btn3 |= (gpio_get(GPIOB, GPIO14) == GPIO14);
-      if (ventana_btn3 == 0x00) { // si en la ventana hay ocho ceros (0b0000'0000)
-        // hay un cero en el pulsador
-        estado_btn3 = 0;
-      } else if (ventana_btn3 == 0xFF) { // si en la ventana hay ocho unos (0b1111'1111)
-        // hay un uno en el pulsador
-        estado_btn3 = 1;
-      }
-      // si ahora hay un 0 y antes había un 1 (flanco descendente)
-      if (estado_btn3 < estado_anterior_btn3) {
-        // se presionó el botón
-        gpio_set(GPIOB, GPIO5); // apagamos el "led2"
-      }
-      estado_anterior_btn3 = estado_btn3;
     }
   }
 }
