@@ -11,10 +11,26 @@ Class LED {
   - gpio : Integer
   - logica : Integer
   - esta_prendido : Boolean
-  + LED(port : Integer, gpio : Integer, logica : Integer, es_opendrain : Boolean)
+  + <<create>> LED(port : Integer, gpio : Integer, logica : Integer, es_opendrain : Boolean)
   + apagar()
   + prender()
   + alternar()
+}
+
+Class Boton {
+  - port : Integer
+  - gpio : Integer
+  - estado : Integer
+  - estado_anterior : Integer
+  - logica : logic_t
+  - ventana : Integer
+  - flanco_ascendente : Boolean
+  - flanco_descendente : Boolean
+  + <<create>> Boton(port : Integer, gpio : Integer, logica : logic_t, es_pull_up_down : Boolean)
+  + estaActivo() : Boolean
+  + huboFlancoAscendente() : Boolean
+  + huboFlancoDescendente() : Boolean
+  + actualizar()
 }
 
 @enduml
